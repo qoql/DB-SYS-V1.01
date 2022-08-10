@@ -1,0 +1,235 @@
+<div class="row">
+	<div class="col-xs-12">
+		<div class="box">
+			<div class="box-header">
+				<h3 class="box-title">日志管理</h3>
+				<div class="box-tools">
+					<div class="input-group input-group-sm" style="width: 350px;">
+						<input type="text" name="table_search" id="searchNameId"
+							class="form-control pull-right" placeholder="用户名">
+
+						<div class="input-group-btn">
+							<button type="button" class="btn btn-default btn-search">
+                                <i class="fa fa-search"></i>
+							</button>
+							<button type="button" class="btn btn-default btn-delete">删除</button>
+						</div>
+					</div>
+				</div>
+			</div>
+			<!-- /.box-header -->
+			<div class="box-body table-responsive no-padding">
+				<table class="table table-hover">
+					<thead>
+						<tr>
+						    <th><input type="checkbox" id="checkAll">全选</th>
+							<th>用户名</th>
+							<th>操作</th>
+							<th>请求方法</th>
+							<th>请求参数</th>
+							<th>IP</th>
+							<th>执行时长</th>
+						</tr>
+					</thead>
+					<tbody id="tbodyId">
+					    <tr>
+					       <td colspan="7">数据正在加载中...</td>
+					    </tr>
+					</tbody>
+				</table>
+			</div>
+			<div id="pageId" class="box-footer clearfix">
+			
+			</div>
+			<!-- /.box-body -->
+		</div>
+		<!-- /.box -->
+	</div>
+</div>
+<script type="text/javascript">
+	//文档就绪事件
+	$(function () {
+		//加载页面结束后，执行匿名函数
+		// $("#pageId").load("doPageUI",function () {
+		// 	//加载数据并呈现数据
+		// 	doGetObjects();
+		// });
+		//等价于上面代码
+		$("#pageId").load("doPageUI", doGetObjects);
+		//按钮事件注册
+		$(".input-group-btn")
+				//查询按钮单击事件注册
+				.on("click",".btn-search",doQueryObjects)
+				//删除按钮单击事件注册
+				.on("click",".btn-delete",doDeleteObject);
+		//点击全选，改变Tbody中所有复选框状态
+		// $("#checkAll").click(doChangeTbodyCheckBoxState);
+		$("#checkAll").change(doChangeTbodyCheckBoxState);//在状态改变的情况和上一行代码一致
+		//基于修改tbody中的checkbox状态，修改thead中的checkbox状态
+		$("#tbodyId").on("change",".cBox",doChangeTHeadCheckBoxState);
+
+	});
+	//基于修改tbody中的checkbox状态，修改thead中的checkbox状态
+	function doChangeTHeadCheckBoxState() {
+		//1、获取tbody中的checkbox对象状态想"与"(&&)的结果
+		var flag = true;
+		$("#tbodyId input[type='checkbox']").each(function () {
+			flag = flag&&$(this).prop("checked");
+		});
+		//2、修改thead中的checkbox的值
+		$("#checkAll").prop("checked",flag);
+	}
+
+	//点击thead中的checkbox时，修改tbody中的checkbox的状态
+	function doChangeTbodyCheckBoxState() {
+		//1、获取点击全选checkbox对象的状态
+		var flag = $(this).prop("checked");
+		//2、修改tbody中的checkbox的状态
+		$("#tbodyId input[type='checkbox']").each(function () {
+			//根据thead中的checkbox状态修改tbody中的checkbox状态
+			//prop方法一个参数时是获取属性值的意思
+			//prop方法两个参数是是覆盖属性值的意思
+			$(this).prop("checked",flag);
+		});
+	}
+
+	//点击删除按钮时执行删除操作
+	function doDeleteObject(){
+		//1、获取选中记录对应的checkbox的值并判断
+		var idArray = doGetCheckedIds();
+		console.log("idArray",idArray);
+		if(idArray.length==0) {
+			alert("请选中需要删除的记录")
+			return;
+		}
+		if(!confirm("确认删除吗?")){//弹窗确定删除？点击取消，则停止删除操作
+			return;
+		}
+		//2、构建请求参数
+		var params = {"ids":idArray.toString()};
+		//3、构建请求url
+		var url = "log/doDeleteObjects";
+		//4、发送异步请求执行删除操作
+		$.post(url,params,function (result) {
+			console.log("result",result);
+			if(result.state==1){
+				alert(result.message);
+				doGetObjects();
+			}else{
+				alert(result.message)
+			}
+		});
+	}
+	function doGetCheckedIds() {
+		//1、定义数组存储选中的checkbox的id
+		var idArray=[];
+		//2、迭代所有的tbody中的checkbox，将选中的值存储到数组
+		$("#tbodyId input[type='checkbox']").each(function (){
+			if($(this).prop("checked")){
+				idArray.push($(this).val());
+			}
+		});
+		//3、返回存储了id的数组
+		return idArray;
+	}
+
+	//基于条件进行日志查询
+	function doQueryObjects() {
+		//前端进入debug方式：调用debugger函数，在浏览器执行相关操作即可自动进入debug界面
+		//debugger;
+		//1、初始化当前页码
+		$("#pageId").data("pageCurrent",1);
+		//2、基于条件进行查询，可以在doGetObjects()方法中获取查询关键字
+		doGetObjects();
+	}
+
+	//异步（底层启动工作线程）加载服务端的数据
+	function doGetObjects() {
+		//每次查询还原全选框状态（取消全选）
+		$("#checkAll").prop("checked",false);
+		//1.定义请求参数
+		//var params = "pageCurrent=1";
+		var pageCurrent=$("#pageId").data("pageCurrent");
+		//2.定义请求url
+		var url = "log/doFindPageObjects";
+		//在js中undifined、0、空串都表示false
+		if(!pageCurrent) pageCurrent=1;//如果pageCurrent没有值，则pageCurrent=1
+		// var params="pageCurrent="+pageCurrent;
+		//等同于 var params="pageCurrent="+pageCurrent;
+		var params = {"pageCurrent":pageCurrent};//json对象
+		//根据id获取文本输入框对象，然后调用val方法获取输入框中的数据
+		var username=$("#searchNameId").val();
+		//如果username不为空，则将username追加到json对象中
+		if(username){
+			params.username=username;
+		}
+		//3.发送异步请求加载日志数据
+		//1)getJSON为Jquery框架中的函数
+		//2)getJSON用于服务端发起get请求
+		//3)getJSON会将服务器返回的JSON串转换为JSON格式的对象
+		//4)function(result){}为回调函数，会在服务端数据响应到客户端以后执行
+		//5)参数result：方法getJSON内部会把从服务端接收的JSON串转为JSON格式的对象，并把对象传递给result
+		$.getJSON(url, params, function (result) {
+			 console.log(result);
+			//处理数据
+			doHandleResponseResult(result);
+		});
+
+	}
+
+	function doHandleResponseResult(result) {
+		if(result.state==1){//正常
+			//1、呈现日志记录
+			// console.log(result.data);
+			//加载日志记录到tbodyId中
+			doSetTableBodyRows(result.data.records);
+			//2、呈现分页信息
+			doSetPagination(result.data);
+		}else{//不正常
+			alert(result.message);
+		}
+	}
+	//加载日志记录到tbodyId中
+	function doSetTableBodyRows(records){
+		//1、获取tbody对象
+		var tbody = $("#tbodyId");
+		//清空原有文字描述(数据正在加载中...)
+		tbody.empty();
+		//2、将记录添加到tbody中
+		for (var i=0;i<records.length;i++){
+			//2.1创建tr对象（行）
+			var tr = $("<tr></tr>");
+			//2.2创建多个td对象（列）
+			var tds = doCreateTds(records[i]);
+			//2.3将td追加到tr中（把列加到行）
+			tr.append(tds);
+			//2.4将tr追加到tbody中（把行加到表体）
+			tbody.append(tr);
+		}
+
+		function doCreateTds(record){
+			var tds = "<td><input type='checkbox' class='cBox' name='cItem' value='"+record.id+"'></td>"+
+					"<td>"+record.username+"</td>"+
+					"<td>"+record.operation+"</td>"+
+					"<td>"+record.method+"</td>"+
+					"<td>"+record.params+"</td>"+
+					"<td>"+record.ip+"</td>"+
+					"<td>"+record.time+"</td>";
+			return tds;
+		}
+	}
+
+	// $(".input-group-btn").on("click",".btn btn-default btn-search",doQueryObjects)
+	//
+	// function doQueryObjects() {
+	// 	$("#pageId").data("pageCurrent",1);
+	// 	doGetObjects();
+	// }
+
+</script>
+
+
+
+
+
+
